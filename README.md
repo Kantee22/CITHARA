@@ -59,7 +59,7 @@ CITHARA is an AI Music Generator web application. This repository contains the d
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd cithara-domain-layer
+cd CITHARA
 ```
 
 ### 2. Install Dependencies
@@ -82,59 +82,99 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### 6. Access Django Admin
-Open http://127.0.0.1:8000/admin/ and log in with your superuser credentials.
+### 6. Access the Application
+- **Django Admin**: http://127.0.0.1:8000/admin/
+- **API Endpoints**: http://127.0.0.1:8000/api/
 
 ---
 
 ## CRUD Operations
 
-CRUD operations are available through two methods:
+CRUD operations are available through three methods:
 
 ### Method 1: Django Admin Interface
-Navigate to `/admin/` to perform Create, Read, Update, and Delete operations on all entities:
-- **Users** – Create/edit/delete users
-- **Libraries** – View/manage user libraries with inline songs
-- **Songs** – Manage songs with inline share links
-- **Song Requests** – Manage requests with inline generation jobs
-- **Generation Jobs** – Track and update job status/progress
-- **Share Links** – Create/revoke share links
+Navigate to `/admin/` to perform Create, Read, Update, and Delete operations on all entities.
 
-### Method 2: CRUD Demo Script
-Run the demo script to see all CRUD operations in action:
+### Method 2: API Endpoints (Basic Views)
+All entities have REST-style API endpoints under `/api/`:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/` | List all users |
+| POST | `/api/users/` | Create a new user |
+| GET | `/api/users/<user_id>/` | Read a single user |
+| PUT | `/api/users/<user_id>/` | Update a user |
+| DELETE | `/api/users/<user_id>/` | Delete a user |
+| GET | `/api/libraries/` | List all libraries |
+| POST | `/api/libraries/` | Create a library |
+| GET | `/api/libraries/<library_id>/` | Read a library with songs |
+| DELETE | `/api/libraries/<library_id>/` | Delete a library |
+| GET | `/api/songs/` | List all songs (filter: `?genre=JAZZ&status=SUCCESS`) |
+| POST | `/api/songs/` | Create a new song |
+| GET | `/api/songs/<song_id>/` | Read a single song |
+| PUT | `/api/songs/<song_id>/` | Update a song |
+| DELETE | `/api/songs/<song_id>/` | Delete a song |
+| GET | `/api/song-requests/` | List all song requests |
+| POST | `/api/song-requests/` | Create a song request |
+| GET | `/api/song-requests/<request_id>/` | Read a song request with jobs |
+| DELETE | `/api/song-requests/<request_id>/` | Delete a song request |
+| GET | `/api/generation-jobs/` | List all generation jobs |
+| POST | `/api/generation-jobs/` | Create a generation job |
+| GET | `/api/generation-jobs/<job_id>/` | Read a generation job |
+| PUT | `/api/generation-jobs/<job_id>/` | Update job status/progress |
+| DELETE | `/api/generation-jobs/<job_id>/` | Delete a generation job |
+| GET | `/api/share-links/` | List all share links |
+| POST | `/api/share-links/` | Create a share link |
+| GET | `/api/share-links/<share_link_id>/` | Read a share link |
+| PUT | `/api/share-links/<share_link_id>/` | Update (toggle active, increment access) |
+| DELETE | `/api/share-links/<share_link_id>/` | Delete a share link |
+
+**Example: Create a user via API**
+```bash
+curl -X POST http://127.0.0.1:8000/api/users/ \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "display_name": "Test User"}'
+```
+
+### Method 3: CRUD Demo Script
+Run the demo script to see all CRUD operations in action via Django ORM:
 ```bash
 python manage.py shell < demo_crud.py
 ```
-
-This script demonstrates:
-1. **CREATE** – Users, Libraries, Songs, SongRequests, GenerationJobs, ShareLinks
-2. **READ** – Query all entities, filter by genre/status, traverse relationships
-3. **UPDATE** – Update song status, job progress, user info, revoke share links
-4. **DELETE** – Delete share links, cascade delete songs→share links, cascade delete users→libraries→songs
 
 ---
 
 ## Project Structure
 
 ```
-cithara-domain-layer/
+CITHARA/
 ├── cithara_project/
 │   ├── __init__.py
-│   ├── settings.py          # Django settings (SQLite, music app)
-│   ├── urls.py               # URL configuration (admin)
+│   ├── settings.py              # Django settings (SQLite, music app)
+│   ├── urls.py                   # URL configuration (admin + API)
 │   ├── wsgi.py
 │   └── asgi.py
 ├── music/
 │   ├── __init__.py
-│   ├── models.py             # Domain entities and enumerations
-│   ├── admin.py              # Django Admin CRUD configuration
-│   ├── apps.py
-│   ├── views.py
+│   ├── models/                   # Domain entities (separated per class)
+│   │   ├── __init__.py           # Exports all models
+│   │   ├── enums.py              # Genre, Voice, GenerationStatus, DownloadFormat
+│   │   ├── user.py               # User entity
+│   │   ├── library.py            # Library entity
+│   │   ├── song.py               # Song entity
+│   │   ├── song_request.py       # SongRequest entity
+│   │   ├── generation_job.py     # GenerationJob entity
+│   │   └── share_link.py         # ShareLink entity
+│   ├── admin.py                  # Django Admin CRUD configuration
+│   ├── apps.py                   # App configuration
+│   ├── urls.py                   # API URL routing
+│   ├── views.py                  # Basic API views for CRUD
 │   └── migrations/
 │       ├── __init__.py
-│       └── 0001_initial.py   # Initial migration
-├── demo_crud.py              # CRUD operations demo script
+│       └── 0001_initial.py       # Initial migration
+├── demo_crud.py                  # CRUD operations demo script
 ├── manage.py
+├── screenshots/                  # Evidence of CRUD functionality
 └── README.md
 ```
 
