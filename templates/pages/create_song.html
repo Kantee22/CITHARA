@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Create Song · CITHARA{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto px-6 py-10 grid lg:grid-cols-5 gap-6">
+    <!-- ===== Form column ===== -->
+    <div class="lg:col-span-3">
+        <h1 class="text-3xl font-bold mb-2">Create a new song</h1>
+        <p class="text-slate-400 text-sm mb-8">
+            Fill the form, hit <span class="text-cyan-300">Generate</span>, and listen to a
+            preview before saving it to your library.
+        </p>
+
+        <form id="create-form" class="space-y-5 card bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Title <span class="text-rose-400">*</span></label>
+                <input type="text" name="title" required maxlength="255"
+                       placeholder="e.g. Sunday morning in Bangkok"
+                       class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                              focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Genre <span class="text-rose-400">*</span></label>
+                    <select name="genre" required
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                                   focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                        {% for code, label in genres %}
+                            <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Voice</label>
+                    <select name="voice"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                                   focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                        <option value="">Any</option>
+                        {% for code, label in voices %}
+                            <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Occasion</label>
+                    <input type="text" name="occasion" maxlength="255"
+                           placeholder="Birthday, road trip, ..."
+                           class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                                  focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Mood</label>
+                    <input type="text" name="mood" maxlength="255"
+                           placeholder="Happy, melancholic, hype, ..."
+                           class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                                  focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">
+                    Prompt <span class="text-rose-400">*</span>
+                    <span class="text-slate-500 text-xs">(max 1000 chars · BR-02)</span>
+                </label>
+                <textarea name="prompt_text" required maxlength="1000" rows="5"
+                          placeholder="Describe the song you want…"
+                          class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2
+                                 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                          oninput="document.getElementById('char-count').textContent = this.value.length"></textarea>
+                <div class="text-xs text-slate-500 mt-1 text-right"><span id="char-count">0</span> / 1000</div>
+            </div>
+
+            <button type="submit" id="generate-btn"
+                    class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           font-semibold py-3 rounded-xl transition shadow-lg shadow-cyan-500/20">
+                Generate
+            </button>
+        </form>
+    </div>
+
+    <!-- ===== Preview column ===== -->
+    <div class="lg:col-span-2">
+        <h2 class="text-lg font-semibold mb-3">Preview</h2>
+        <div id="preview-card"
+             class="card bg-slate-900/60 border border-slate-800 rounded-2xl p-6 min-h-[280px]">
+
+            {% if preview %}
+            <div data-song-id="{{ preview.song_id }}">
+                <div class="text-sm text-emerald-400 mb-1">✓ Ready to save</div>
+                <div class="font-bold text-lg mb-1">{{ preview.title }}</div>
+                <div class="text-xs text-slate-400 mb-3">
+                    {{ preview.get_genre_display }}{% if preview.duration %} · {{ preview.duration }}{% endif %}
+                </div>
+                {% if preview.audio_file_url %}
+                    <audio controls class="w-full mb-4" src="{{ preview.audio_file_url }}"></audio>
+                {% endif %}
+                <div class="flex flex-wrap gap-2">
+                    <button class="js-save-btn flex-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded-lg text-sm font-medium transition">
+                        Save to library
+                    </button>
+                    <button class="js-regenerate-btn bg-cyan-600 hover:bg-cyan-500 px-3 py-2 rounded-lg text-sm font-medium transition"
+                            title="Generate again using the same prompt (FR-16)">
+                        🔄 Regenerate
+                    </button>
+                    <button class="js-discard-btn bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-sm transition">
+                        Discard
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <div id="preview-empty" class="text-center text-slate-500 pt-12">
+                <div class="text-5xl mb-3">🎵</div>
+                <p>Your preview will appear here.</p>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const form = document.getElementById('create-form');
+    const btn = document.getElementById('generate-btn');
+    const card = document.getElementById('preview-card');
+    const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // ----- Helpers ------------------------------------------------
+    async function jsonPost(url, body) {
+        const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            body: body ? JSON.stringify(body) : null,
+        });
+        return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+    }
+    async function jsonGet(url) {
+        const r = await fetch(url, { headers: { 'X-CSRFToken': csrf } });
+        return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+    }
+
+    function renderProgress(progress, status) {
+        card.innerHTML = `
+            <div class="text-center py-6">
+                <div class="text-sm text-cyan-300 mb-2 uppercase tracking-widest">${status}</div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden mb-3">
+                    <div class="h-3 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 transition-all"
+                         style="width:${progress || 5}%"></div>
+                </div>
+                <div class="text-2xl font-bold">${progress || 0}%</div>
+                <p class="text-xs text-slate-500 mt-3">Suno is composing your track…</p>
+            </div>`;
+    }
+
+    function renderSuccess(song) {
+        card.innerHTML = `
+            <div data-song-id="${song.song_id}">
+                <div class="text-sm text-emerald-400 mb-1">✓ Ready to save</div>
+                <div class="font-bold text-lg mb-1">${escapeHtml(song.title)}</div>
+                <div class="text-xs text-slate-400 mb-3">
+                    ${escapeHtml(song.genre)}${song.duration ? ' · ' + escapeHtml(song.duration) : ''}
+                </div>
+                ${song.audio_file_url
+                    ? `<audio controls class="w-full mb-4" src="${escapeAttr(song.audio_file_url)}"></audio>`
+                    : ''}
+                <div class="flex flex-wrap gap-2">
+                    <button class="js-save-btn flex-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded-lg text-sm font-medium transition">
+                        Save to library
+                    </button>
+                    <button class="js-regenerate-btn bg-cyan-600 hover:bg-cyan-500 px-3 py-2 rounded-lg text-sm font-medium transition"
+                            title="Generate again using the same prompt (FR-16)">
+                        🔄 Regenerate
+                    </button>
+                    <button class="js-discard-btn bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-sm transition">
+                        Discard
+                    </button>
+                </div>
+            </div>`;
+        wirePreviewActions();
+    }
+
+    // Reusable polling loop — used by both the initial submit and the
+    // Regenerate flow so behaviour stays identical.
+    function pollJob(jobId) {
+        const pollUrl = `/create/poll/${jobId}/`;
+        let tries = 0;
+        const interval = setInterval(async () => {
+            tries++;
+            const res = await jsonGet(pollUrl);
+            if (!res.ok) return;
+            const j = res.data;
+            renderProgress(j.progress, j.status);
+            if (j.status === 'SUCCESS' && j.song) {
+                clearInterval(interval);
+                renderSuccess(j.song);
+                btn.disabled = false; btn.textContent = 'Generate';
+            } else if (j.status === 'FAILED') {
+                clearInterval(interval);
+                renderFailure(j.error_message);
+                btn.disabled = false; btn.textContent = 'Generate';
+            } else if (tries > 72) {
+                clearInterval(interval);
+                renderFailure('Timed out after 6 minutes. Try again.');
+                btn.disabled = false; btn.textContent = 'Generate';
+            }
+        }, 5000);
+    }
+
+    function renderFailure(msg) {
+        card.innerHTML = `
+            <div class="text-center py-6">
+                <div class="text-3xl mb-2">⚠️</div>
+                <div class="font-semibold text-red-300 mb-1">Generation failed</div>
+                <p class="text-sm text-slate-400">${escapeHtml(msg || 'Unknown error')}</p>
+            </div>`;
+    }
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+    const escapeAttr = escapeHtml;
+
+    // ----- Submit -> generate -> poll loop ------------------------
+    form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        btn.disabled = true; btn.textContent = 'Generating…';
+        renderProgress(0, 'queued');
+
+        const fd = new FormData(form);
+        const body = {
+            title: fd.get('title'),
+            genre: fd.get('genre'),
+            voice: fd.get('voice'),
+            occasion: fd.get('occasion'),
+            mood: fd.get('mood'),
+            prompt_text: fd.get('prompt_text'),
+        };
+
+        const submit = await jsonPost("{% url 'create_song_submit' %}", body);
+        if (!submit.ok) {
+            renderFailure(submit.data.error || `HTTP ${submit.status}`);
+            btn.disabled = false; btn.textContent = 'Generate';
+            return;
+        }
+
+        const jobId = submit.data.job_id;
+        renderProgress(submit.data.progress, submit.data.status);
+
+        if (submit.data.status === 'SUCCESS' && submit.data.song) {
+            renderSuccess(submit.data.song);
+            btn.disabled = false; btn.textContent = 'Generate';
+            return;
+        }
+        if (submit.data.status === 'FAILED') {
+            renderFailure(submit.data.error_message);
+            btn.disabled = false; btn.textContent = 'Generate';
+            return;
+        }
+
+        // Poll every 5 seconds, up to 6 minutes (Suno usually finishes in <2).
+        pollJob(jobId);
+    });
+
+    // ----- Save / Regenerate / Discard buttons --------------------
+    function wirePreviewActions() {
+        const saveBtn = card.querySelector('.js-save-btn');
+        const regenBtn = card.querySelector('.js-regenerate-btn');
+        const discardBtn = card.querySelector('.js-discard-btn');
+        const wrapper = card.querySelector('[data-song-id]');
+        if (!wrapper) return;
+        const songId = wrapper.dataset.songId;
+
+        saveBtn?.addEventListener('click', async () => {
+            saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+            const r = await jsonPost(`/create/save/${songId}/`);
+            if (r.ok) { window.location.href = "{% url 'library' %}"; }
+            else { saveBtn.disabled = false; saveBtn.textContent = 'Save to library';
+                   alert(r.data.error || 'Save failed'); }
+        });
+        regenBtn?.addEventListener('click', async () => {
+            // FR-16 — fire a brand-new job that reuses the same SongRequest.
+            // No form input needed: the backend resurrects the prompt
+            // from the linked GenerationJob → SongRequest chain.
+            regenBtn.disabled = true; regenBtn.textContent = 'Regenerating…';
+            btn.disabled = true; btn.textContent = 'Regenerating…';
+            renderProgress(0, 'queued');
+            const r = await jsonPost(`/create/regenerate/${songId}/`);
+            if (!r.ok) {
+                renderFailure(r.data.error || `HTTP ${r.status}`);
+                btn.disabled = false; btn.textContent = 'Generate';
+                return;
+            }
+            // The response shape mirrors create_song_submit's, so we
+            // can drive the same renderSuccess/renderProgress/poll loop.
+            if (r.data.status === 'SUCCESS' && r.data.song) {
+                renderSuccess(r.data.song);
+                btn.disabled = false; btn.textContent = 'Generate';
+                return;
+            }
+            if (r.data.status === 'FAILED') {
+                renderFailure(r.data.error_message);
+                btn.disabled = false; btn.textContent = 'Generate';
+                return;
+            }
+            renderProgress(r.data.progress, r.data.status);
+            pollJob(r.data.job_id);
+        });
+        discardBtn?.addEventListener('click', async () => {
+            if (!confirm('Discard this preview?')) return;
+            const r = await jsonPost(`/create/discard/${songId}/`);
+            if (r.ok) { card.innerHTML = `
+                <div id="preview-empty" class="text-center text-slate-500 pt-12">
+                    <div class="text-5xl mb-3">🎵</div>
+                    <p>Your preview will appear here.</p>
+                </div>`; }
+        });
+    }
+    wirePreviewActions();
+})();
+</script>
+{% endblock %}

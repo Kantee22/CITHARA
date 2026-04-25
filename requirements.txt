@@ -1,0 +1,15 @@
+# CITHARA — runtime dependencies
+# Install with:  pip install -r requirements.txt
+
+Django>=5.0,<6.1
+
+# Exercise 4: used by SunoSongGeneratorStrategy to call sunoapi.org
+requests>=2.31
+
+# Exercise 5 (Web UI + Google OAuth — SRS FR-01/FR-02)
+# django-allauth provides the full Google OAuth 2.0 flow without us
+# having to hand-roll the token exchange. 0.63.x is the last series
+# that still supports Django 5.x AND 6.x.
+django-allauth>=0.63,<65
+PyJWT>=2.8
+cryptography>=42.0

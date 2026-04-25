@@ -1,0 +1,34 @@
+# ---------------------------------------------------------------------
+# CITHARA — Git ignore list
+# ---------------------------------------------------------------------
+# Exercise 4: the Suno API key MUST NOT be committed. We ignore ``.env``
+# here so a developer who accidentally stores credentials there is
+# protected by source control.
+
+# Secrets / local env -------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Django ---------------------------------------------------------------
+db.sqlite3
+db.sqlite3-journal
+*.log
+/staticfiles/
+/media/
+
+# IDE ------------------------------------------------------------------
+.vscode/
+.idea/
+
+# OS -------------------------------------------------------------------
+.DS_Store
+Thumbs.db

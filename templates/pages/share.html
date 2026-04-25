@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ song.title }} · CITHARA{% endblock %}
+
+{% block content %}
+<section class="max-w-xl mx-auto px-6 py-16 text-center">
+    <p class="uppercase tracking-[0.3em] text-xs text-cyan-300 mb-2">Shared by {{ owner }}</p>
+    <h1 class="text-4xl font-bold mb-2 brand-gradient">{{ song.title }}</h1>
+    <p class="text-slate-400 text-sm mb-8">
+        {{ song.get_genre_display }}
+        {% if song.duration %} · {{ song.duration }}{% endif %}
+    </p>
+
+    <div class="card bg-slate-900/60 border border-slate-800 rounded-2xl p-8">
+        {% if song.audio_file_url %}
+            <audio controls autoplay class="w-full mb-4" src="{{ song.audio_file_url }}"></audio>
+            <div class="inline-flex rounded-lg border border-slate-700 overflow-hidden text-sm">
+                <span class="bg-slate-800/80 px-3 py-2 text-slate-400">⬇ Download as</span>
+                <a href="{% url 'share_download' link_token %}?format=mp3"
+                   class="bg-slate-800 hover:bg-slate-700 px-4 py-2 transition border-l border-slate-700"
+                   title="Download as MP3 (original)">
+                    MP3
+                </a>
+                <a href="{% url 'share_download' link_token %}?format=m4a"
+                   class="bg-slate-800 hover:bg-slate-700 px-4 py-2 transition border-l border-slate-700"
+                   title="Download as M4A (AAC, transcoded — needs ffmpeg)">
+                    M4A
+                </a>
+            </div>
+        {% else %}
+            <p class="text-slate-400">Audio is not yet available.</p>
+        {% endif %}
+    </div>
+
+    <p class="text-xs text-slate-500 mt-6">Listened {{ access_count }} time{{ access_count|pluralize }}</p>
+
+    <div class="mt-10">
+        <a href="{% url 'landing' %}" class="text-sm text-slate-400 hover:text-cyan-300">
+            Like this? Try CITHARA →
+        </a>
+    </div>
+</section>
+{% endblock %}

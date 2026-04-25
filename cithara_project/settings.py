@@ -10,10 +10,30 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# ---------------------------------------------------------------------------
+# Tiny .env loader (Exercise 4 §4.3 — API key must NOT be committed)
+# ---------------------------------------------------------------------------
+# We deliberately avoid adding a hard dependency on ``python-dotenv`` so
+# the assignment stays easy to grade. If a ``.env`` file exists beside
+# ``manage.py`` we read it line-by-line and push KEY=VALUE pairs into
+# ``os.environ`` (without clobbering values that were already set by the
+# shell). Comment lines and blanks are ignored.
+_env_file = BASE_DIR / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _k, _v = _line.split("=", 1)
+        _k, _v = _k.strip(), _v.strip().strip('"').strip("'")
+        os.environ.setdefault(_k, _v)
 
 
 # Quick-start development settings - unsuitable for production
@@ -37,8 +57,21 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # django.contrib.sites + django-allauth — Google OAuth 2.0 login
+    # (SRS FR-01, FR-02). ``sites`` is required by allauth to build
+    # absolute callback URLs; we keep a single Site (SITE_ID = 1).
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+
     'music',
 ]
+
+# Required by django.contrib.sites / allauth.
+SITE_ID = 1
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -50,6 +83,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # allauth middleware — populates request.allauth and handles the
+    # account/login lifecycle. Must come after AuthenticationMiddleware.
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'cithara_project.urls'
@@ -57,7 +93,9 @@ ROOT_URLCONF = 'cithara_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Project-level ``templates/`` folder for the Web UI (landing,
+        # login, create-song, library, share) — see SRS §3.1.
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -118,3 +156,112 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# ---------------------------------------------------------------------------
+# Exercise 4 — Strategy Pattern configuration
+# ---------------------------------------------------------------------------
+# ``GENERATOR_STRATEGY`` is the single switch that decides which concrete
+# :class:`music.generation.SongGeneratorStrategy` the application uses.
+# Valid values: "mock" (default, offline / no credentials needed) or
+# "suno" (real sunoapi.org integration — requires SUNO_API_KEY).
+#
+# All three variables below are read from the environment so that the
+# same codebase can run locally (mock) and in production (suno) without
+# code changes — see README §"Exercise 4 — Strategy Pattern".
+GENERATOR_STRATEGY = os.environ.get("GENERATOR_STRATEGY", "mock").strip().lower()
+
+# Credentials for the Suno strategy. Never commit a real key — use the
+# ``.env`` file (already ignored by git) or export the variable in your
+# shell before starting the server.
+SUNO_API_KEY = os.environ.get("SUNO_API_KEY", "")
+SUNO_API_BASE_URL = os.environ.get("SUNO_API_BASE_URL", "https://api.sunoapi.org/api/v1")
+SUNO_API_TIMEOUT = int(os.environ.get("SUNO_API_TIMEOUT", "30"))
+SUNO_API_MODEL = os.environ.get("SUNO_API_MODEL", "V4")
+# Suno requires a callBackUrl on every /generate call (HTTP 400
+# "Please enter callBackUrl." otherwise). The placeholder is fine for
+# polling-based flows; replace with a real public webhook if you ever
+# wire up server-push notifications.
+SUNO_CALLBACK_URL = os.environ.get(
+    "SUNO_CALLBACK_URL",
+    "https://example.com/cithara/suno-callback",
+)
+
+
+# ---------------------------------------------------------------------------
+# Exercise 5 — Authentication (django-allauth + Google OAuth 2.0)
+# ---------------------------------------------------------------------------
+# SRS FR-01: "The system shall allow a user to sign in with a Google
+# account." We delegate the OAuth dance to django-allauth; the only
+# custom piece is a post-login signal that keeps the project-specific
+# ``music.User`` row in sync with ``django.contrib.auth.User``
+# (Option A — see music/signals.py).
+
+# Auth backends: keep Django's default backend for the admin site AND
+# add allauth's so social logins authenticate through the same stack.
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# Where to send users after login / logout (SRS §3.1 flow).
+LOGIN_URL = 'account_login'            # allauth's login view
+LOGIN_REDIRECT_URL = 'create_song'     # Create Song page
+LOGOUT_REDIRECT_URL = 'landing'        # Landing page
+
+# --- allauth account settings --------------------------------------------
+# Email-based login — no separate username field (SRS FR-01/FR-02).
+# Both new (>=0.63) and legacy keys are set so the configuration is
+# robust across allauth versions.
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*']
+# Legacy aliases — still honored by allauth and cover the case where
+# Django's auth.User model insists on a username.
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+
+ACCOUNT_EMAIL_VERIFICATION = 'none'    # demo/course app — skip verify email
+ACCOUNT_SESSION_REMEMBER = True
+# Don't force a second confirmation step when the user clicks the
+# Google button — go straight to the create-song page.
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+# If the user already has an auth.User row with this email (e.g. from
+# a partial earlier attempt or the Django superuser), let allauth log
+# them in as that user instead of showing the signup form. Google
+# already verified the email so this is safe.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+
+# Custom adapter that auto-generates a unique username from the user's
+# Google email so the intermediate "pick a username" form never shows
+# (see music/adapters.py for the rationale).
+SOCIALACCOUNT_ADAPTER = 'music.adapters.CitharaSocialAccountAdapter'
+
+# --- Google provider config -----------------------------------------------
+# Credentials live in environment variables (loaded from .env above).
+# The Client ID / Secret come from Google Cloud Console — they are
+# NOT committed to the repo. The registered redirect URI on the
+# Google side must be:
+#   http://127.0.0.1:8000/accounts/google/login/callback/
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        # The ``APP`` dict lets us configure the provider from settings
+        # instead of the admin ``SocialApp`` UI — one less manual step
+        # when the app is cloned fresh. Still works alongside any
+        # ``SocialApp`` row created in /admin/.
+        "APP": {
+            "client_id": GOOGLE_CLIENT_ID,
+            "secret": GOOGLE_CLIENT_SECRET,
+            "key": "",
+        },
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+    },
+}
+

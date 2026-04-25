@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}My Library · CITHARA{% endblock %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto px-6 py-10">
+    <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">My library</h1>
+            <p class="text-slate-400 text-sm">{{ songs|length }} song{{ songs|length|pluralize }}</p>
+        </div>
+        <a href="{% url 'create_song' %}"
+           class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2 rounded-xl font-medium transition shadow-lg shadow-cyan-500/20">
+            + New song
+        </a>
+    </div>
+
+    <!-- Filter / search bar (FR-21) -->
+    <form method="get" class="card bg-slate-900/60 border border-slate-800 rounded-2xl p-4 mb-6
+                              flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs uppercase tracking-widest text-slate-400 mb-1">Search</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Title contains…"
+                   class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm
+                          focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+        </div>
+        <div>
+            <label class="block text-xs uppercase tracking-widest text-slate-400 mb-1">Genre</label>
+            <select name="genre"
+                    class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm
+                           focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                <option value="">All</option>
+                {% for code, label in genres %}
+                    <option value="{{ code }}" {% if active_genre == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs uppercase tracking-widest text-slate-400 mb-1">Sort</label>
+            <select name="sort"
+                    class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm
+                           focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                <option value="newest" {% if active_sort == "newest" %}selected{% endif %}>Newest</option>
+                <option value="oldest" {% if active_sort == "oldest" %}selected{% endif %}>Oldest</option>
+                <option value="title"  {% if active_sort == "title" %}selected{% endif %}>Title (A–Z)</option>
+            </select>
+        </div>
+        <button type="submit"
+                class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm transition">
+            Apply
+        </button>
+    </form>
+
+    {% if songs %}
+        <ul class="space-y-3">
+            {% for s in songs %}
+            <li data-song-id="{{ s.song_id }}"
+                class="card bg-slate-900/60 border border-slate-800 rounded-2xl p-5
+                       flex flex-wrap items-center gap-4">
+                <div class="flex-1 min-w-[220px]">
+                    <div class="font-semibold text-lg">{{ s.title }}</div>
+                    <div class="text-xs text-slate-400">
+                        {{ s.get_genre_display }}
+                        {% if s.duration %} · {{ s.duration }}{% endif %}
+                        · saved {{ s.created_at|date:"M j, Y" }}
+                    </div>
+                </div>
+                {% if s.audio_file_url %}
+                    <audio controls preload="none" src="{{ s.audio_file_url }}"
+                           class="w-full sm:w-72"></audio>
+                    <div class="inline-flex rounded-lg border border-slate-700 overflow-hidden text-sm">
+                        <span class="bg-slate-800/80 px-3 py-2 text-slate-400">⬇</span>
+                        <a href="{% url 'library_download' s.song_id %}?format=mp3"
+                           class="bg-slate-800 hover:bg-slate-700 px-3 py-2 transition border-l border-slate-700"
+                           title="Download as MP3 (original)">
+                            MP3
+                        </a>
+                        <a href="{% url 'library_download' s.song_id %}?format=m4a"
+                           class="bg-slate-800 hover:bg-slate-700 px-3 py-2 transition border-l border-slate-700"
+                           title="Download as M4A (AAC, transcoded — needs ffmpeg)">
+                            M4A
+                        </a>
+                    </div>
+                {% endif %}
+                <button type="button"
+                        class="js-share-btn bg-cyan-600 hover:bg-cyan-500 px-3 py-2 rounded-lg text-sm transition">
+                    Share
+                </button>
+                <form method="post" action="{% url 'library_delete' s.song_id %}"
+                      onsubmit="return confirm('Delete this song? This will also revoke any share links.');"
+                      class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="bg-red-900/60 hover:bg-red-800 border border-red-700 px-3 py-2 rounded-lg text-sm transition">
+                        Delete
+                    </button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="card bg-slate-900/60 border border-slate-800 rounded-2xl p-10 text-center">
+            <div class="text-5xl mb-3">🎶</div>
+            <p class="text-slate-300 mb-4">Your library is empty.</p>
+            <a href="{% url 'create_song' %}"
+               class="inline-block bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500
+                      px-4 py-2 rounded-xl font-medium transition shadow-lg shadow-cyan-500/20">
+                Create your first song
+            </a>
+        </div>
+    {% endif %}
+</section>
+
+<!-- Share modal -->
+<div id="share-modal"
+     class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center px-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold mb-1">Share song</h3>
+        <p class="text-sm text-slate-400 mb-4" id="share-title"></p>
+        <input id="share-url" readonly
+               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono">
+        <div class="flex gap-2 mt-4">
+            <button onclick="copyShare()"
+                    class="flex-1 bg-cyan-600 hover:bg-cyan-500 px-3 py-2 rounded-lg text-sm font-medium">
+                Copy link
+            </button>
+            <button onclick="document.getElementById('share-modal').classList.add('hidden');
+                             document.getElementById('share-modal').classList.remove('flex');"
+                    class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-sm">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    document.querySelectorAll('.js-share-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const li = btn.closest('[data-song-id]');
+            const songId = li.dataset.songId;
+            btn.disabled = true; btn.textContent = '…';
+            const r = await fetch(`/library/${songId}/share/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf },
+            });
+            const data = await r.json();
+            btn.disabled = false; btn.textContent = 'Share';
+            if (!r.ok) { alert(data.error || 'Failed'); return; }
+
+            document.getElementById('share-title').textContent = data.song_title;
+            document.getElementById('share-url').value = data.url;
+            const modal = document.getElementById('share-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        });
+    });
+})();
+function copyShare() {
+    const inp = document.getElementById('share-url');
+    inp.select(); document.execCommand('copy');
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = orig, 1500);
+}
+</script>
+{% endblock %}

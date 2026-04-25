@@ -1,0 +1,85 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CITHARA — AI Music Generator{% endblock %}</title>
+    <!-- Tailwind via CDN keeps the assignment dependency-free.
+         In production we would compile a bundle — acceptable here
+         because the brief asks for UI, not deployment hardening. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { color-scheme: dark; }
+        /* Midnight Cyan palette — deep navy base with a cyan→indigo
+           accent flow. Background blends sky-950 (top) through
+           slate-900 into slate-950 (bottom) so the page feels like a
+           night sky lit by a faint cyan aurora at the top. */
+        body {
+            background: radial-gradient(ellipse at top, #082f49 0%, #0c1a3a 45%, #020617 100%);
+            min-height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        .brand-gradient {
+            background: linear-gradient(90deg, #22d3ee 0%, #3b82f6 50%, #6366f1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .card { backdrop-filter: blur(10px); }
+        /* Subtle cyan ring shadow on hover for Tailwind utility-friendly
+           glow without writing every shadow inline. */
+        .glow-cyan { box-shadow: 0 0 24px -6px rgba(34, 211, 238, 0.45); }
+    </style>
+</head>
+<body class="text-slate-100">
+    <nav class="bg-slate-900/60 border-b border-slate-800 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="{% url 'landing' %}" class="text-xl font-bold brand-gradient tracking-tight">
+                CITHARA
+            </a>
+            <div class="flex items-center gap-4 text-sm">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'create_song' %}" class="hover:text-cyan-300 transition">Create</a>
+                    <a href="{% url 'library' %}" class="hover:text-cyan-300 transition">Library</a>
+                    <span class="text-slate-400 hidden sm:inline">{{ user.email }}</span>
+                    <form method="post" action="{% url 'account_logout' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-200 transition">
+                            Sign out
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'account_login' %}"
+                       class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-1.5 rounded-lg font-medium transition shadow-lg shadow-cyan-500/20">
+                        Sign in
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    {% if messages %}
+    <div class="max-w-6xl mx-auto px-6 mt-4 space-y-2">
+        {% for m in messages %}
+        <div class="px-4 py-3 rounded-lg text-sm
+                    {% if m.tags == 'error' %}bg-red-900/40 border border-red-700 text-red-200
+                    {% elif m.tags == 'success' %}bg-emerald-900/40 border border-emerald-700 text-emerald-200
+                    {% else %}bg-slate-800/60 border border-slate-700 text-slate-200{% endif %}">
+            {{ m }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="mt-20 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        CITHARA · Principles of Software Design · Exercise 5 — Web UI + Google OAuth
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -3,10 +3,14 @@ CITHARA Domain Layer - Basic Views
 
 Provides simple API-style views for CRUD operations on core domain entities.
 This satisfies Exercise 3 Task 4: Demonstrate CRUD via simple views / API endpoints.
+
+Exercise 4 additionally wires two generation endpoints at the bottom
+of this file that delegate to :mod:`music.services` (Strategy Pattern).
 """
 
 import json
 import uuid
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -16,6 +20,8 @@ from .models import (
     User, Library, Song, SongRequest, GenerationJob, ShareLink,
     Genre, Voice, GenerationStatus,
 )
+from . import services
+from .generation import STRATEGY_REGISTRY
 
 
 # =============================================================================
@@ -541,3 +547,82 @@ def share_link_detail(request, share_link_id):
     # DELETE
     link.delete()
     return JsonResponse({'message': 'Share link deleted successfully'})
+
+
+# =============================================================================
+# Exercise 4 — Strategy Pattern generation endpoints
+# =============================================================================
+# These endpoints are deliberately thin: they parse the request,
+# dispatch to the service layer (``music.services``), and serialize the
+# resulting ``GenerationJob``. All strategy selection, HTTP calls and
+# domain updates live inside the service + Strategy layers.
+
+
+def _serialize_job(job: GenerationJob) -> dict:
+    """Shared serializer so /generate and /poll return identical shapes."""
+    return {
+        'job_id': str(job.job_id),
+        'song_request_id': str(job.song_request.request_id),
+        'provider': job.provider,
+        'provider_task_id': job.provider_task_id,
+        'status': job.status,
+        'progress': job.progress,
+        'error_message': job.error_message,
+        'song': {
+            'song_id': str(job.song.song_id),
+            'title': job.song.title,
+            'audio_file_url': job.song.audio_file_url,
+            'duration': job.song.duration,
+        } if job.song else None,
+        'created_at': job.created_at.isoformat(),
+        'completed_at': job.completed_at.isoformat() if job.completed_at else None,
+    }
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_song(request):
+    """
+    POST /api/generate/
+    Body: {"song_request_id": "<uuid>"}
+
+    Starts a generation using the currently configured strategy
+    (``settings.GENERATOR_STRATEGY``) and returns the created
+    ``GenerationJob``.
+    """
+    data = _parse_json_body(request)
+    if not data.get('song_request_id'):
+        return JsonResponse({'error': 'song_request_id is required'}, status=400)
+
+    song_req = get_object_or_404(SongRequest, request_id=data['song_request_id'])
+    job = services.start_generation(song_req)
+    return JsonResponse(_serialize_job(job), status=201)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def generation_job_poll(request, job_id):
+    """
+    GET /api/generation-jobs/<job_id>/poll/
+
+    Asks the strategy that originally produced ``job`` for a fresh
+    status (no-op for jobs that already reached SUCCESS / FAILED).
+    """
+    job = get_object_or_404(GenerationJob, job_id=job_id)
+    job = services.refresh_generation_job(job)
+    return JsonResponse(_serialize_job(job))
+
+
+@require_http_methods(["GET"])
+def generator_strategy_info(request):
+    """
+    GET /api/generator/
+
+    Tiny introspection endpoint — returns the active strategy name and
+    the list of registered strategies. Handy for smoke-testing that the
+    `GENERATOR_STRATEGY` env var is picked up correctly.
+    """
+    return JsonResponse({
+        'active': getattr(settings, 'GENERATOR_STRATEGY', 'mock'),
+        'registered': sorted(STRATEGY_REGISTRY.keys()),
+    })

@@ -31,4 +31,9 @@ urlpatterns = [
     # ShareLink endpoints
     path('share-links/', views.share_link_list, name='share-link-list'),
     path('share-links/<uuid:share_link_id>/', views.share_link_detail, name='share-link-detail'),
+
+    # Exercise 4 - Strategy Pattern generation endpoints
+    path('generator/', views.generator_strategy_info, name='generator-info'),
+    path('generate/', views.generate_song, name='generate-song'),
+    path('generation-jobs/<uuid:job_id>/poll/', views.generation_job_poll, name='generation-job-poll'),
 ]

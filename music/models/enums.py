@@ -32,11 +32,17 @@ class Voice(models.TextChoices):
 class GenerationStatus(models.TextChoices):
     """
     Status of a generation job or song.
-    Traced from: FR-14, Features 4.3, US-13
+    Traced from: FR-14, FR-15, Features 4.3, US-13
+
+    Lifecycle for a Song row:
+        QUEUED → PROCESSING → SUCCESS (preview) → SAVED (library)
+                                               ↳ (deleted if user discards)
+        any → FAILED
     """
     QUEUED = 'QUEUED', 'Queued'
     PROCESSING = 'PROCESSING', 'Processing'
     SUCCESS = 'SUCCESS', 'Success'
+    SAVED = 'SAVED', 'Saved'
     FAILED = 'FAILED', 'Failed'
 
 

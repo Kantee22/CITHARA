@@ -51,6 +51,24 @@ class GenerationJob(models.Model):
         null=True,
         help_text="Error details if generation failed (FR-17)"
     )
+    # --- Exercise 4: Strategy Pattern bookkeeping ---------------------
+    # ``provider`` records which concrete strategy produced the job so
+    # we know how to poll it later even if the default GENERATOR_STRATEGY
+    # has been flipped since submission.
+    # ``provider_task_id`` stores the external id returned by the
+    # strategy's ``generate()`` call (Suno ``taskId`` / mock hash id).
+    provider = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Name of the generator strategy used (e.g. 'mock', 'suno')."
+    )
+    provider_task_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="External task id returned by the strategy (polling key)."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(
         blank=True,
